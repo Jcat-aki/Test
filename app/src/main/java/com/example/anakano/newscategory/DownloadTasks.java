@@ -9,12 +9,15 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Created by anakano on 17/03/05.
  */
 
-public class DownloadTasks extends AsyncTask<URL, Integer, String> {
+public class DownloadTasks extends AsyncTask<URL, Integer, List<String>> {
 
     private ProgressDialog mProgressDialog;
     private TextView mTextView;
@@ -49,9 +52,10 @@ public class DownloadTasks extends AsyncTask<URL, Integer, String> {
      * @return ダウンロードした結果を返す
      */
     @Override
-    protected String doInBackground(URL... urls) {
+    protected List<String> doInBackground(URL... urls) {
         String result = "";
         HttpURLConnection httpURLConnection = null;
+        List<String> ids = new ArrayList<>();
 
         try{
             httpURLConnection = (HttpURLConnection) urls[0].openConnection();
@@ -69,10 +73,23 @@ public class DownloadTasks extends AsyncTask<URL, Integer, String> {
             }
 
             result = sb.toString();
+            publishProgress(30);
+
+            result = result.replaceAll("\\[","");
+            result = result.replaceAll("]","");
+            result = result.replaceAll(" ","");
+            ids = Arrays.asList(result.split(","));
+
+            publishProgress(60);
+
+
         } catch (IOException e) {
             e.printStackTrace();
+        } finally {
+            httpURLConnection.disconnect();
         }
-        return result;
+        publishProgress(100);
+        return ids;
     }
 
     /**
@@ -87,12 +104,12 @@ public class DownloadTasks extends AsyncTask<URL, Integer, String> {
 
     /**
      * doInBackgroundが完了したらよばれるやつ。UIスレッド上で動く。
-     * @param result 結果
+     * @param results 結果
      */
     @Override
-    protected void onPostExecute( String result){
+    protected void onPostExecute( List<String> results){
         mProgressDialog.dismiss();
 
-        mTextView.setText(result);
+        mTextView.setText(results.get(0));
     }
 }
