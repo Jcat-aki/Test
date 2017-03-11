@@ -4,6 +4,9 @@ import android.app.ProgressDialog;
 import android.os.AsyncTask;
 import android.widget.TextView;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -56,6 +59,7 @@ public class DownloadTasks extends AsyncTask<URL, Integer, List<String>> {
         String result = "";
         HttpURLConnection httpURLConnection = null;
         List<String> ids = new ArrayList<>();
+        List<String> parseResult = new ArrayList<>();
 
         try{
             httpURLConnection = (HttpURLConnection) urls[0].openConnection();
@@ -67,29 +71,58 @@ public class DownloadTasks extends AsyncTask<URL, Integer, List<String>> {
 
             StringBuffer sb = new StringBuffer();
             String readLine = "";
-            BufferedReader br = new BufferedReader(new InputStreamReader(httpURLConnection.getInputStream()));
-            while ( (readLine = br.readLine()) != null){
-                sb.append(readLine);
+            if( resp == HttpURLConnection.HTTP_OK) { // リクエスト失敗時
+                BufferedReader br = new BufferedReader(new InputStreamReader(httpURLConnection.getInputStream()));
+                while ((readLine = br.readLine()) != null) {
+                    sb.append(readLine);
+                }
             }
-
+            // 一旦接続を解除する
+            httpURLConnection.disconnect();
             result = sb.toString();
-            publishProgress(30);
 
             result = result.replaceAll("\\[","");
             result = result.replaceAll("]","");
             result = result.replaceAll(" ","");
             ids = Arrays.asList(result.split(","));
 
-            publishProgress(60);
+            publishProgress(10);
+            String jsonResult; // 受け取りたいjson の文字列
+            int roop = 0;
 
+             // 一旦この場所に記述し、必要に応じてメソッドに分割する
+            for( String requestId : ids){
+                final URL url = new URL("https://hacker-news.firebaseio.com/v0/item/"+ requestId +".json?print=pretty");
+                httpURLConnection = (HttpURLConnection) url.openConnection();
+                httpURLConnection.setRequestMethod("GET");
+
+                httpURLConnection.connect();
+
+                if( httpURLConnection.getResponseCode() == HttpURLConnection.HTTP_OK){
+                    BufferedReader br = new BufferedReader(new InputStreamReader(httpURLConnection.getInputStream()));
+                    readLine = "";
+                    sb.delete(0, sb.length());
+                    while ( (readLine = br.readLine()) != null ){
+                        sb.append(readLine);
+                    }
+                    jsonResult = sb.toString();
+
+                    JSONObject jsonObject = new JSONObject(jsonResult);
+                    parseResult.add(jsonObject.getString("title"));
+                }
+               roop += 1;
+
+            }
 
         } catch (IOException e) {
+            e.printStackTrace();
+        } catch (JSONException e) {
             e.printStackTrace();
         } finally {
             httpURLConnection.disconnect();
         }
         publishProgress(100);
-        return ids;
+        return parseResult;
     }
 
     /**
@@ -99,7 +132,7 @@ public class DownloadTasks extends AsyncTask<URL, Integer, List<String>> {
      */
     @Override
     protected void onProgressUpdate( Integer... progress){
-        mProgressDialog.incrementProgressBy(progress[0]);
+        mProgressDialog.setProgress(progress[0]);
     }
 
     /**
@@ -112,4 +145,5 @@ public class DownloadTasks extends AsyncTask<URL, Integer, List<String>> {
 
         mTextView.setText(results.get(0));
     }
+
 }
